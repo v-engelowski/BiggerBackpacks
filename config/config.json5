@@ -1,0 +1,7 @@
+{
+    "debug": false,
+    "removeGridLayouts": false,
+    "multiplier": 1.5,
+    "clampHeight": 12,
+    "clampWidth": 6     // anything above 6 causes overlap
+}
