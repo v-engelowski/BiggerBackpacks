@@ -9,8 +9,7 @@ import { JsonUtil } from "@spt/utils/JsonUtil";
 import { IDatabaseTables } from "@spt/models/spt/server/IDatabaseTables";
 import { Ixyz } from "@spt/models/eft/common/Ixyz";
 
-
-class TransitTweaker implements IPostDBLoadMod {
+class BiggerBackpacks implements IPostDBLoadMod {
     private config: any;
     private logger: ILogger;
     private databaseServer: DatabaseServer;
@@ -27,56 +26,40 @@ class TransitTweaker implements IPostDBLoadMod {
 
         this.config = this.jsonUtil.deserializeJson5(this.vfs.readFile(path.join(__dirname , "../config/config.json5")));
 
-        // Globals config
-        const transitConfig = this.db.globals.config.TransitSettings;
-        const fenceConfig   = this.db.globals.config.FenceSettings;
+        const allitems = this.db.templates.items;
+        let backpacksChanged = 0;
 
-        // There has to be a better way, no?
-        const locations     = [this.db.locations.bigmap, this.db.locations.develop, this.db.locations.factory4_day, this.db.locations.factory4_night, this.db.locations.interchange, this.db.locations.laboratory, this.db.locations.lighthouse, this.db.locations.privatearea, this.db.locations.rezervbase, this.db.locations.shoreline, this.db.locations.suburbs, this.db.locations.tarkovstreets, this.db.locations.terminal, this.db.locations.town, this.db.locations.woods];
+        for (const [, item] of Object.entries(allitems)) {
 
-        //#region Cost
-        const oldCostBear = transitConfig.BearPriceMod;
-        const oldCostUsec = transitConfig.UsecPriceMod;
+            // We only want items that originate from "backpack" and we filter out backpacks that have a "special" layout. Otherwise it would cause with grids overlapping
+            if (item._parent === "5448e53e4bdc2d60728b4567" && item._props.Grids) {
 
-        transitConfig.BearPriceMod *= this.config.transitCostMultiplier;
-        transitConfig.UsecPriceMod *= this.config.transitCostMultiplier;
+                // We don't want to change backpacks with a predetermined layout, otherwise it would cause overlapping
+                if (item._props.GridLayoutName !== "") {
+                    // Remove grid layout and then apply size multiplier. Now no backpacks have a layout
+                    if (this.config.removeGridLayouts) {
+                        item._props.GridLayoutName = "";
+                        item._props.Grids = [item._props.Grids[0]];
+                        this.debugLog(`Removed grid layout from ${item._id}`);
+                    } else {
+                        this.debugLog(`Skipped ${item._id} because it has multiple grids`);
+                        continue;
+                    }
+                }
 
-        this.debugLog(`Changed Bear price from ${oldCostBear} to ${transitConfig.BearPriceMod}`);
-        this.debugLog(`Changed Usec price from ${oldCostUsec} to ${transitConfig.UsecPriceMod}`);
-        //#endregion
+                // Applies the multiplier but clamps the max size of the backpack to specified values. This ensures that no backpacks are too large.
+                const oldWidth = item._props.Grids[0]._props.cellsH;
+                const oldHeight = item._props.Grids[0]._props.cellsV;
 
-        //#region Grid size
-        for (const [ _, fenceLevel ] of Object.entries(fenceConfig.Levels)) {
-            const oldSize = fenceLevel.TransitGridSize;
-            const newSize: Ixyz = this.config.transitGridSize;
+                item._props.Grids[0]._props.cellsH = Math.min(Math.floor(oldWidth * this.config.multiplier), this.config.clampWidth);
+                item._props.Grids[0]._props.cellsV = Math.min(Math.floor(oldHeight * this.config.multiplier), this.config.clampHeight);
+                backpacksChanged++;
 
-            fenceLevel.TransitGridSize = newSize;
-            fenceLevel.TransitGridSize.z = 0;
-
-            this.debugLog(`Changed grid size from ${oldSize.x}x${oldSize.y} to ${fenceLevel.TransitGridSize.x}x${fenceLevel.TransitGridSize.y}`);
-        }
-        //#endregion
-
-        //#region Transit time
-        for (const location of locations) {
-            const transits = location.base.transits;
-
-            // Check if transits are null
-            if (!transits) {
-                this.debugLog(`Transits are null for ${location.base.Name}`);
-                continue;
-            }
-
-            for (const transit of transits) {
-                const oldTime = transit.time;
-                transit.time = Math.max(Math.round(transit.time * this.config.transitTimeMultiplier), 1);
-
-                this.debugLog(`${location.base.Name} - ${transit.name}: ${oldTime} -> ${transit.time}`);
+                this.debugLog(`Resized ${item._id} from ${oldWidth}x${oldHeight} to ${item._props.Grids[0]._props.cellsH}x${item._props.Grids[0]._props.cellsV}`);
             }
         }
-        //#endregion
-        
-        this.logger.info("[TransitTweaker] loaded.");
+
+        this.logger.info(`[BiggerBackpacks] Changed ${backpacksChanged} backpacks`);
     }
 
     private debugLog(message: string) {
@@ -87,4 +70,4 @@ class TransitTweaker implements IPostDBLoadMod {
 }
 
 
-module.exports = { mod: new TransitTweaker() };
+module.exports = { mod: new BiggerBackpacks() };
