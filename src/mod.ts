@@ -69,7 +69,7 @@ class TransitTweaker implements IPostDBLoadMod {
 
             for (const transit of transits) {
                 const oldTime = transit.time;
-                transit.time = Math.min(Math.round(transit.time * this.config.transitTimeMultiplier), 1);
+                transit.time = Math.max(Math.round(transit.time * this.config.transitTimeMultiplier), 1);
 
                 this.debugLog(`${location.base.Name} - ${transit.name}: ${oldTime} -> ${transit.time}`);
             }
