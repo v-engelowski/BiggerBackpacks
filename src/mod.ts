@@ -7,6 +7,7 @@ import { LogTextColor } from "@spt/models/spt/logging/LogTextColor";
 import path from "path";
 import { JsonUtil } from "@spt/utils/JsonUtil";
 import { IDatabaseTables } from "@spt/models/spt/server/IDatabaseTables";
+import { Ixyz } from "@spt/models/eft/common/Ixyz";
 
 
 class TransitTweaker implements IPostDBLoadMod {
@@ -45,11 +46,12 @@ class TransitTweaker implements IPostDBLoadMod {
         //#endregion
 
         //#region Grid size
-        for (const [, fenceLevel] of Object.entries(fenceConfig.Levels)) {
+        for (const [ _, fenceLevel ] of Object.entries(fenceConfig.Levels)) {
             const oldSize = fenceLevel.TransitGridSize;
+            const newSize: Ixyz = this.config.transitGridSize;
 
-            fenceLevel.TransitGridSize.x = this.config.transitGridX;
-            fenceLevel.TransitGridSize.y = this.config.transitGridY;
+            fenceLevel.TransitGridSize = newSize;
+            fenceLevel.TransitGridSize.z = 0;
 
             this.debugLog(`Changed grid size from ${oldSize.x}x${oldSize.y} to ${fenceLevel.TransitGridSize.x}x${fenceLevel.TransitGridSize.y}`);
         }
